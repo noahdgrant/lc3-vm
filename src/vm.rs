@@ -1,3 +1,4 @@
+use crate::instruction;
 use crate::register::{Register, Registers};
 
 const MEMORY_SIZE: usize = u16::MAX as usize;
@@ -15,7 +16,7 @@ impl VirtualMachine {
         }
     }
 
-    pub fn read_memory(&self, address: u16) -> u16 {
+    fn read_memory(&self, address: u16) -> u16 {
         self.memory[address as usize]
     }
 
@@ -23,5 +24,21 @@ impl VirtualMachine {
     // not allowed to
     pub fn write_memory(&mut self, address: usize, value: u16) {
         self.memory[address] = value;
+    }
+
+    fn fetch(&mut self) -> u16 {
+        self.read_memory(Register::PC as u16)
+    }
+
+    fn step(&mut self) {
+        let instruction = self.fetch();
+        self.registers.increment_pc_register();
+        instruction::execute(self, instruction);
+    }
+
+    pub fn run(&mut self) {
+        while self.registers.get(Register::PC) < MEMORY_SIZE as u16 {
+            self.step();
+        }
     }
 }

@@ -92,4 +92,8 @@ impl Registers {
             self.update(Register::COND, ConditionalFlag::POS as u16);
         }
     }
+
+    pub fn increment_pc_register(&mut self) {
+        self.pc += 1;
+    }
 }
