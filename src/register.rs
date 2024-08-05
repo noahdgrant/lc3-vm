@@ -1,5 +1,6 @@
 const PC_START: u16 = 0x3000;
 
+#[derive(Clone, Copy, Debug)]
 #[repr(u16)]
 pub enum Register {
     R0,
@@ -14,23 +15,25 @@ pub enum Register {
     COND,
 }
 
-pub struct Registers {
-    r0: u16,
-    r1: u16,
-    r2: u16,
-    r3: u16,
-    r4: u16,
-    r5: u16,
-    r6: u16,
-    r7: u16,
-    pc: u16,
-    cond: u16,
-}
-
+#[derive(Clone, Copy, Debug)]
+#[repr(u16)]
 enum ConditionalFlag {
     POS = 1 << 0, // Positive
     ZRO = 1 << 1, // Zero
     NEG = 1 << 2, // Negative
+}
+
+pub struct Registers {
+    pub r0: u16,
+    pub r1: u16,
+    pub r2: u16,
+    pub r3: u16,
+    pub r4: u16,
+    pub r5: u16,
+    pub r6: u16,
+    pub r7: u16,
+    pub pc: u16,
+    pub cond: u16,
 }
 
 impl Registers {
@@ -49,46 +52,44 @@ impl Registers {
         }
     }
 
-    pub fn update(&mut self, index: u16, value: u16) {
-        match index {
-            0 => self.r0 = value,
-            1 => self.r1 = value,
-            2 => self.r2 = value,
-            3 => self.r3 = value,
-            4 => self.r4 = value,
-            5 => self.r5 = value,
-            6 => self.r6 = value,
-            7 => self.r7 = value,
-            8 => self.pc = value,
-            9 => self.cond = value,
-            _ => panic!("Index out of bounds"),
+    pub fn get(&self, register: Register) -> u16 {
+        match register {
+            Register::R0 => self.r0,
+            Register::R1 => self.r1,
+            Register::R2 => self.r2,
+            Register::R3 => self.r3,
+            Register::R4 => self.r4,
+            Register::R5 => self.r5,
+            Register::R6 => self.r6,
+            Register::R7 => self.r7,
+            Register::PC => self.pc,
+            Register::COND => self.cond,
         }
     }
 
-    pub fn get(&self, index: u16) -> u16 {
-        match index {
-            0 => self.r0,
-            1 => self.r1,
-            2 => self.r2,
-            3 => self.r3,
-            4 => self.r4,
-            5 => self.r5,
-            6 => self.r6,
-            7 => self.r7,
-            8 => self.pc,
-            9 => self.cond,
-            _ => panic!("Index out of bounds"),
+    pub fn update(&mut self, register: Register, value: u16) {
+        match register {
+            Register::R0 => self.r0 = value,
+            Register::R1 => self.r1 = value,
+            Register::R2 => self.r2 = value,
+            Register::R3 => self.r3 = value,
+            Register::R4 => self.r4 = value,
+            Register::R5 => self.r5 = value,
+            Register::R6 => self.r6 = value,
+            Register::R7 => self.r7 = value,
+            Register::PC => self.pc = value,
+            Register::COND => self.cond = value,
         }
     }
 
-    pub fn update_cond_register(&mut self, r: u16) {
-        if self.get(r) == 0 {
-            self.update(Register::COND as u16, ConditionalFlag::ZRO as u16);
-        } else if (self.get(r) >> 15) != 0 {
+    pub fn update_cond_register(&mut self, register: Register) {
+        if self.get(register) == 0 {
+            self.update(Register::COND, ConditionalFlag::ZRO as u16);
+        } else if (self.get(register) >> 15) != 0 {
             // NOTE: A 1 in the left-most bit indicates a negative
-            self.update(Register::COND as u16, ConditionalFlag::NEG as u16);
+            self.update(Register::COND, ConditionalFlag::NEG as u16);
         } else {
-            self.update(Register::COND as u16, ConditionalFlag::POS as u16);
+            self.update(Register::COND, ConditionalFlag::POS as u16);
         }
     }
 }
