@@ -1,8 +1,11 @@
+use std::str::FromStr;
+
 use crate::VirtualMachine;
 
+// TODO: Implement Display trait
 #[derive(Debug)]
 #[repr(u8)]
-enum OpCode {
+pub enum OpCode {
     /// Conditional branch
     BR,
     /// Add
@@ -35,6 +38,34 @@ enum OpCode {
     LEA,
     /// System call
     TRAP,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct OpCodeError;
+
+impl FromStr for OpCode {
+    type Err = OpCodeError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "BR" => Ok(OpCode::BR),
+            "ADD" => Ok(OpCode::ADD),
+            "LD" => Ok(OpCode::LD),
+            "ST" => Ok(OpCode::ST),
+            "JSR" => Ok(OpCode::JSR),
+            "AND" => Ok(OpCode::AND),
+            "LDR" => Ok(OpCode::LDR),
+            "STR" => Ok(OpCode::STR),
+            "RTI" => Ok(OpCode::RTI),
+            "NOT" => Ok(OpCode::NOT),
+            "LDI" => Ok(OpCode::LDI),
+            "STI" => Ok(OpCode::STI),
+            "JMP" => Ok(OpCode::JMP),
+            "RES" => Ok(OpCode::RES),
+            "LEA" => Ok(OpCode::LEA),
+            "HALT" => Ok(OpCode::TRAP),
+            _ => Err(OpCodeError),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -104,8 +135,42 @@ fn br(vm: &mut VirtualMachine, instruction: u16) {
     todo!()
 }
 
+/// ADD takes two values and stores them in a register.
+/// In register mode, the second value to add is found in a register.
+/// In immediate mode, the second value is embedded in the right-most 5 bits of the instruction.
+/// Values which are shorter than 16 bits need to be sign extended.
+/// Any time an instruction modifies a register, the condition flags need to be updated
+/// If bit [5] is 0, the second source operand is obtained from SR2.
+/// If bit [5] is 1, the second source operand is obtained by sign-extending the imm5 field to 16 bits.
+/// In both cases, the second source operand is added to the contents of SR1 and the result stored in DR.
+/// The condition codes are set, based on whether the result is negative, zero, or positive.
+/// Encoding:
+///
+/// 15           12 │11        9│8         6│ 5 │4     3│2         0
+/// ┌───────────────┼───────────┼───────────┼───┼───────┼───────────┐
+/// │      0001     │     DR    │  SR1      │ 0 │  00   │    SR2    │
+/// └───────────────┴───────────┴───────────┴───┴───────┴───────────┘
+///
+///  15           12│11        9│8         6│ 5 │4                 0
+/// ┌───────────────┼───────────┼───────────┼───┼───────────────────┐
+/// │      0001     │     DR    │  SR1      │ 1 │       IMM5        │
+/// └───────────────┴───────────┴───────────┴───┴───────────────────┘
 fn add(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
+    let dr = (instruction >> 9) & 0x7;
+    let sr1 = (instruction >> 6) & 0x7;
+    let imm_flag = (instruction >> 5) & 0x1;
+
+    if imm_flag == 1 {
+        let imm5 = sign_extend(instruction & 0x1F, 5);
+        let result = vm.registers.get(sr1) + imm5;
+        vm.registers.update(dr, result);
+    } else {
+        let sr2 = instruction & 0x7;
+        let result = vm.registers.get(sr1) + vm.registers.get(sr2);
+        vm.registers.update(dr, result);
+    }
+
+    vm.registers.update_cond_register(dr);
 }
 
 fn ld(vm: &mut VirtualMachine, instruction: u16) {
@@ -162,4 +227,40 @@ fn lea(vm: &mut VirtualMachine, instruction: u16) {
 
 fn trap(vm: &mut VirtualMachine, instruction: u16) {
     todo!()
+}
+
+fn sign_extend(mut x: u16, bit_count: u8) -> u16 {
+    // bit_count is the original number of bits
+    // that this binary value has. We want to take that
+    // and transform it into a 16 bits value.
+
+    // Then check if it's different than zero,
+    // if it is, it's signed as 1 (negative)
+    // Meaning we have to pad with ones instead of zeroes
+    if (x >> (bit_count - 1)) & 0x1 != 0 {
+        x |= 0xFFFF << bit_count;
+    }
+
+    // If it's positive, return as is, it will be padded
+    // with zeroes.
+    x
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_sign_extend_positive() {
+        let x: u16 = 3;
+        let value = sign_extend(x, 5);
+        assert_eq!(3, value);
+    }
+
+    #[test]
+    fn test_sign_extend_negative() {
+        let x: i16 = -5;
+        let value = sign_extend(x as u16, 5);
+        assert_eq!(0xFFFB, value);
+    }
 }

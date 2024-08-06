@@ -4,7 +4,7 @@ use crate::register::{Register, Registers};
 const MEMORY_SIZE: usize = u16::MAX as usize;
 
 pub struct VirtualMachine {
-    registers: Registers,
+    pub registers: Registers,
     memory: [u16; MEMORY_SIZE],
 }
 
@@ -27,18 +27,42 @@ impl VirtualMachine {
     }
 
     fn fetch(&mut self) -> u16 {
-        self.read_memory(Register::PC as u16)
+        let pc = self.registers.get(Register::PC as u16);
+        self.read_memory(pc)
     }
 
     fn step(&mut self) {
+        self.dump_registers();
+
         let instruction = self.fetch();
+        println!("Executing 0x{:X}\n", instruction);
+
         self.registers.increment_pc_register();
         instruction::execute(self, instruction);
     }
 
     pub fn run(&mut self) {
-        while self.registers.get(Register::PC) < MEMORY_SIZE as u16 {
+        // TODO: Add 'or HALT' to stop early
+        while self.registers.get(Register::PC as u16) < MEMORY_SIZE as u16 {
             self.step();
         }
+    }
+
+    pub fn dump_memory(&self) {
+        todo!();
+    }
+
+    pub fn dump_registers(&self) {
+        // TODO: implement Display for registers to make this easier
+        println!("R0: 0x{:X}", self.registers.get(Register::R0 as u16));
+        println!("R1: 0x{:X}", self.registers.get(Register::R1 as u16));
+        println!("R2: 0x{:X}", self.registers.get(Register::R2 as u16));
+        println!("R3: 0x{:X}", self.registers.get(Register::R3 as u16));
+        println!("R4: 0x{:X}", self.registers.get(Register::R4 as u16));
+        println!("R5: 0x{:X}", self.registers.get(Register::R5 as u16));
+        println!("R6: 0x{:X}", self.registers.get(Register::R6 as u16));
+        println!("R7: 0x{:X}", self.registers.get(Register::R7 as u16));
+        println!("PC: 0x{:X}", self.registers.get(Register::PC as u16));
+        println!("COND: 0x{:X}", self.registers.get(Register::COND as u16));
     }
 }
