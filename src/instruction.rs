@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::VirtualMachine;
 
 // TODO: Implement Display trait
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum OpCode {
     /// Conditional branch

@@ -69,12 +69,13 @@ fn main() {
 }
 
 fn encode_line(parts: Vec<String>) -> u16 {
-    let mut instruction: u16;
-    let sr2: Option<Register>;
+    let mut instruction: u16 = 0;
 
     let op_code = OpCode::from_str(parts[0].as_str()).unwrap();
     println!("Encoded line:");
     println!("op: {:?}", &op_code);
+
+    instruction += (op_code as u16) << 12;
 
     match op_code {
         //OpCode::BR => ,
@@ -82,19 +83,30 @@ fn encode_line(parts: Vec<String>) -> u16 {
             assert!(parts.len() == 4);
             let dr = Register::from_str(parts[1].as_str()).unwrap();
             let sr1 = Register::from_str(parts[2].as_str()).unwrap();
+            println!("dr: {}", dr as u16);
+            println!("sr1: {}", sr1 as u16);
 
-            instruction = ((op_code as u16) << 12) + ((dr as u16) << 9) + ((sr1 as u16) << 6);
+            instruction += ((dr as u16) << 9) + ((sr1 as u16) << 6);
 
             // TODO: figure out a better way to do this
-            if parts[3].starts_with(&['x', 'X', 'b', 'B', '#']) {
-                let imm5_flag = 1;
-                let imm5 = encode_numeric(&parts[3]).unwrap();
-                instruction += (imm5_flag << 5) + imm5;
-
-                println!("dr: {}", dr as u16);
-                println!("sr1: {}", sr1 as u16);
-                println!("imm5 flag: {}", imm5_flag);
-                println!("imm5: {}", imm5);
+            match parts[3]
+                .chars()
+                .nth(0)
+                .expect("Missing ADD instruction argument")
+            {
+                'x' | 'X' | 'b' | 'B' | '#' => {
+                    let imm5_flag = 1;
+                    let imm5 = encode_numeric(&parts[3]).unwrap();
+                    instruction += (imm5_flag << 5) + imm5;
+                    println!("imm5 flag: {}", imm5_flag);
+                    println!("imm5: {}", imm5);
+                }
+                'R' => {
+                    let sr2 = Register::from_str(parts[3].as_str()).unwrap();
+                    instruction += sr2 as u16;
+                    println!("sr2: {}", sr2 as u16);
+                }
+                _ => panic!("Unknown symbol {}", parts[3]),
             }
         }
         //OpCode::LD => ld(vm, instruction),
@@ -119,7 +131,7 @@ fn encode_line(parts: Vec<String>) -> u16 {
     instruction
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct ParseNumbericError;
 
 fn encode_numeric(s: &String) -> Result<u16, ParseNumbericError> {
