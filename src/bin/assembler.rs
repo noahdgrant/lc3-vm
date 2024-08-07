@@ -65,7 +65,7 @@ fn main() {
     }
 
     // output assembled file to same directory as input but change the extension
-    let _ = write_file(&output, "hello.bin").unwrap();
+    let _ = write_file(&output, "hello.obj").unwrap();
 }
 
 fn encode_line(parts: Vec<String>) -> u16 {
