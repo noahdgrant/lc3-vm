@@ -1,6 +1,9 @@
+// Comments before instructions taken from:
+// https://github.com/digorithm/LC-3-Rust/blob/main/src/hardware/instruction/mod.rs
+
 use std::str::FromStr;
 
-use crate::VirtualMachine;
+use crate::{Register, VirtualMachine, MEMORY_SIZE};
 
 // TODO: Implement Display trait
 #[derive(Debug, Copy, Clone)]
@@ -173,8 +176,28 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
     vm.registers.update_cond_register(dr);
 }
 
+/// An address is computed by sign-extending bits [8:0] to 16 bits and
+/// adding this value to the incremented PC.
+/// The contents of memory at this address are loaded into DR.
+/// The condition codes are set, based on whether the value loaded is negative, zero, or positive.
+///
+///  15           12│11        9│8                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      0010     │     DR    │            PCOffset9              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
 fn ld(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
+    let dr = (instruction >> 9) & 0x7;
+    let offset = sign_extend(instruction & 0x1FF, 9);
+    let pc = vm.registers.get(Register::PC as u16);
+
+    let address: u32 = pc as u32 + offset as u32;
+    if address > MEMORY_SIZE as u32 {
+        panic!("Tried to access invalid memory address 0x{:X}", address);
+    }
+
+    let value = vm.read_memory(address as u16);
+    vm.registers.update(dr, value);
+    vm.registers.update_cond_register(dr);
 }
 
 fn st(vm: &mut VirtualMachine, instruction: u16) {

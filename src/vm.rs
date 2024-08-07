@@ -1,7 +1,7 @@
 use crate::instruction;
 use crate::register::{Register, Registers};
 
-const MEMORY_SIZE: usize = u16::MAX as usize;
+pub const MEMORY_SIZE: usize = u16::MAX as usize;
 
 pub struct VirtualMachine {
     pub registers: Registers,
@@ -16,12 +16,13 @@ impl VirtualMachine {
         }
     }
 
-    fn read_memory(&self, address: u16) -> u16 {
+    // TODO: Add a check to see if this is outside the available memory
+    pub fn read_memory(&self, address: u16) -> u16 {
         self.memory[address as usize]
     }
 
     // TODO: Could return error if user tries to write to memory they are
-    // not allowed to
+    // not allowed to or is outside the valid range
     pub fn write_memory(&mut self, address: usize, value: u16) {
         self.memory[address] = value;
     }
