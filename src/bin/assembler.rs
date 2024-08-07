@@ -1,5 +1,7 @@
 // Assembler
 use std::env;
+use std::error::Error;
+use std::fmt;
 use std::fs;
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -132,23 +134,44 @@ fn encode_line(parts: Vec<String>) -> u16 {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct ParseNumbericError;
+pub enum ParseNumericError {
+    InvalidBinary(String),
+    InvalidDecimal(String),
+    InvalidHex(String),
+    InvalidNumber(String),
+}
 
-fn encode_numeric(s: &String) -> Result<u16, ParseNumbericError> {
+impl fmt::Display for ParseNumericError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ParseNumericError::InvalidBinary(s) => write!(f, "Invalid binary number: {}", s),
+            ParseNumericError::InvalidDecimal(s) => write!(f, "Invalid decimal number: {}", s),
+            ParseNumericError::InvalidHex(s) => write!(f, "Invalid hex number: {}", s),
+            ParseNumericError::InvalidNumber(s) => write!(f, "Invalid number: {}", s),
+        }
+    }
+}
+
+impl Error for ParseNumericError {}
+
+fn encode_numeric(s: &String) -> Result<u16, ParseNumericError> {
     let symbol = s.chars().next().unwrap();
 
     // TODO: figure out better way to get the rest of the string after the first char
     let mut chars = s.chars();
-    chars.next();
+    chars.next().unwrap();
     let number = chars.as_str();
 
     println!("Encoding: {} {}", symbol, number);
 
     match symbol {
-        'x' | 'X' => u16::from_str_radix(number, 16).map_err(|_| ParseNumbericError),
-        'b' | 'B' => u16::from_str_radix(number, 2).map_err(|_| ParseNumbericError),
-        '#' => u16::from_str_radix(number, 10).map_err(|_| ParseNumbericError),
-        _ => Err(ParseNumbericError),
+        'b' | 'B' => u16::from_str_radix(number, 2)
+            .map_err(|_| ParseNumericError::InvalidBinary(number.to_string())),
+        '#' => u16::from_str_radix(number, 10)
+            .map_err(|_| ParseNumericError::InvalidDecimal(number.to_string())),
+        'x' | 'X' => u16::from_str_radix(number, 16)
+            .map_err(|_| ParseNumericError::InvalidHex(number.to_string())),
+        _ => Err(ParseNumericError::InvalidNumber(number.to_string())),
     }
 }
 
