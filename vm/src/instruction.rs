@@ -5,10 +5,9 @@ use std::str::FromStr;
 
 use crate::{Register, VirtualMachine, MEMORY_SIZE};
 
-// TODO: Implement Display trait
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
-pub enum OpCode {
+pub enum Opcode {
     /// Conditional branch
     BR,
     /// Add
@@ -43,30 +42,38 @@ pub enum OpCode {
     TRAP,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct OpCodeError;
+impl From<Opcode> for u8 {
+    fn from(opcode: Opcode) -> Self {
+        opcode as u8
+    }
+}
 
-impl FromStr for OpCode {
-    type Err = OpCodeError;
+#[derive(Debug, PartialEq, Eq)]
+pub enum OpcodeError {
+    UnknownOpcode(String),
+}
+
+impl FromStr for Opcode {
+    type Err = OpcodeError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "BR" => Ok(OpCode::BR),
-            "ADD" => Ok(OpCode::ADD),
-            "LD" => Ok(OpCode::LD),
-            "ST" => Ok(OpCode::ST),
-            "JSR" => Ok(OpCode::JSR),
-            "AND" => Ok(OpCode::AND),
-            "LDR" => Ok(OpCode::LDR),
-            "STR" => Ok(OpCode::STR),
-            "RTI" => Ok(OpCode::RTI),
-            "NOT" => Ok(OpCode::NOT),
-            "LDI" => Ok(OpCode::LDI),
-            "STI" => Ok(OpCode::STI),
-            "JMP" => Ok(OpCode::JMP),
-            "RES" => Ok(OpCode::RES),
-            "LEA" => Ok(OpCode::LEA),
-            "HALT" => Ok(OpCode::TRAP),
-            _ => Err(OpCodeError),
+            "BR" => Ok(Opcode::BR),
+            "ADD" => Ok(Opcode::ADD),
+            "LD" => Ok(Opcode::LD),
+            "ST" => Ok(Opcode::ST),
+            "JSR" => Ok(Opcode::JSR),
+            "AND" => Ok(Opcode::AND),
+            "LDR" => Ok(Opcode::LDR),
+            "STR" => Ok(Opcode::STR),
+            "RTI" => Ok(Opcode::RTI),
+            "NOT" => Ok(Opcode::NOT),
+            "LDI" => Ok(Opcode::LDI),
+            "STI" => Ok(Opcode::STI),
+            "JMP" => Ok(Opcode::JMP),
+            "RES" => Ok(Opcode::RES),
+            "LEA" => Ok(Opcode::LEA),
+            "HALT" => Ok(Opcode::TRAP),
+            _ => Err(OpcodeError::UnknownOpcode(s.to_string())),
         }
     }
 }
@@ -88,55 +95,32 @@ pub enum TrapCode {
 }
 
 pub fn execute(vm: &mut VirtualMachine, instruction: u16) {
-    let op_code = get_op_code(&instruction);
+    let opcode = instruction >> 12;
 
-    match op_code {
-        OpCode::BR => br(vm, instruction),
-        OpCode::ADD => add(vm, instruction),
-        OpCode::LD => ld(vm, instruction),
-        OpCode::ST => st(vm, instruction),
-        OpCode::JSR => jsr(vm, instruction),
-        OpCode::AND => and(vm, instruction),
-        OpCode::LDR => ldr(vm, instruction),
-        OpCode::STR => str(vm, instruction),
-        OpCode::RTI => rti(vm, instruction),
-        OpCode::NOT => not(vm, instruction),
-        OpCode::LDI => ldi(vm, instruction),
-        OpCode::STI => sti(vm, instruction),
-        OpCode::JMP => jmp(vm, instruction),
-        OpCode::RES => res(vm, instruction),
-        OpCode::LEA => lea(vm, instruction),
-        OpCode::TRAP => trap(vm, instruction),
+    match opcode {
+        //0 => br(vm, instruction),
+        1 => add(vm, instruction),
+        2 => ld(vm, instruction),
+        //3 => st(vm, instruction),
+        //4 => jsr(vm, instruction),
+        //5 => and(vm, instruction),
+        //6 => ldr(vm, instruction),
+        //7 => str(vm, instruction),
+        //8 => rti(vm, instruction),
+        //9 => not(vm, instruction),
+        //10 => ldi(vm, instruction),
+        //11 => sti(vm, instruction),
+        //12 => jmp(vm, instruction),
+        //13 => res(vm, instruction),
+        //14 => lea(vm, instruction),
+        //15 => trap(vm, instruction),
+        _ => panic!("Unknown opcode {opcode}"),
     }
 }
 
-fn get_op_code(instruction: &u16) -> OpCode {
-    let op_code = instruction >> 12;
-
-    match op_code {
-        0 => OpCode::BR,
-        1 => OpCode::ADD,
-        2 => OpCode::LD,
-        3 => OpCode::ST,
-        4 => OpCode::JSR,
-        5 => OpCode::AND,
-        6 => OpCode::LDR,
-        7 => OpCode::STR,
-        8 => OpCode::RTI,
-        9 => OpCode::NOT,
-        10 => OpCode::LDI,
-        11 => OpCode::STI,
-        12 => OpCode::JMP,
-        13 => OpCode::RES,
-        14 => OpCode::LEA,
-        15 => OpCode::TRAP,
-        _ => panic!("Unknown opcode {}", op_code),
-    }
-}
-
-fn br(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
+//fn br(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
 
 /// ADD takes two values and stores them in a register.
 /// In register mode, the second value to add is found in a register.
@@ -188,7 +172,7 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
 fn ld(vm: &mut VirtualMachine, instruction: u16) {
     let dr = (instruction >> 9) & 0x7;
     let offset = sign_extend(instruction & 0x1FF, 9);
-    let pc = vm.registers.get(Register::PC as u16);
+    let pc = vm.registers.get(Register::PC.into());
 
     let address: u32 = pc as u32 + offset as u32;
     if address > MEMORY_SIZE as u32 {
@@ -200,57 +184,57 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
     vm.registers.update_cond_register(dr);
 }
 
-fn st(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn jsr(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn and(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn ldr(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn str(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn rti(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn not(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn ldi(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn sti(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn jmp(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn res(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn lea(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
-
-fn trap(vm: &mut VirtualMachine, instruction: u16) {
-    todo!()
-}
+//fn st(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn jsr(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn and(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn ldr(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn str(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn rti(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn not(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn ldi(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn sti(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn jmp(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn res(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn lea(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
+//
+//fn trap(vm: &mut VirtualMachine, instruction: u16) {
+//    todo!()
+//}
 
 fn sign_extend(mut x: u16, bit_count: u8) -> u16 {
     // bit_count is the original number of bits
