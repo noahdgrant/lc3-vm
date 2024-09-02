@@ -46,9 +46,9 @@ impl From<Register> for u16 {
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
 enum ConditionalFlag {
-    POS = 1 << 0,
-    ZRO = 1 << 1,
-    NEG = 1 << 2,
+    Positive = 1 << 0,
+    Zero = 1 << 1,
+    Negative = 1 << 2,
 }
 
 impl From<ConditionalFlag> for u16 {
@@ -118,18 +118,43 @@ impl Registers {
         }
     }
 
+    pub fn dump(&self) {
+        println!(
+            "R0: 0x{:04X} | R1: 0x{:04X} | R2: 0x{:04X} | R3: 0x{:04X} | R4: 0x{:04X}",
+            self.get(Register::R0.into()),
+            self.get(Register::R1.into()),
+            self.get(Register::R2.into()),
+            self.get(Register::R3.into()),
+            self.get(Register::R4.into())
+        );
+        println!(
+            "R5: 0x{:04X} | R6: 0x{:04X} | R7: 0x{:04X} | PC: 0x{:04X} | COND: 0x{:04X}",
+            self.get(Register::R5.into()),
+            self.get(Register::R6.into()),
+            self.get(Register::R7.into()),
+            self.get(Register::PC.into()),
+            self.get(Register::COND.into())
+        );
+    }
+
     pub fn update_cond_register(&mut self, register: u16) {
         if self.get(register) == 0 {
-            self.set(Register::COND.into(), ConditionalFlag::ZRO.into());
+            self.set(Register::COND.into(), ConditionalFlag::Zero.into());
         } else if (self.get(register) >> 15) != 0 {
             // NOTE: A 1 in the left-most bit indicates a negative
-            self.set(Register::COND.into(), ConditionalFlag::NEG.into());
+            self.set(Register::COND.into(), ConditionalFlag::Negative.into());
         } else {
-            self.set(Register::COND.into(), ConditionalFlag::POS.into());
+            self.set(Register::COND.into(), ConditionalFlag::Positive.into());
         }
     }
 
     pub fn increment_pc_register(&mut self) {
         self.pc += 1;
+    }
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self::new()
     }
 }

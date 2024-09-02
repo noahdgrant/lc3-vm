@@ -179,7 +179,7 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
         panic!("Tried to access invalid memory address 0x{:X}", address);
     }
 
-    let value = vm.read_memory(address as u16);
+    let value = vm.memory.read(address as u16);
     vm.registers.set(dr, value);
     vm.registers.update_cond_register(dr);
 }

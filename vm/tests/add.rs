@@ -8,15 +8,16 @@ fn immediate_mode() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
+    vm.registers.set(Register::PC.into(), address);
     for line in binary {
-        vm.write_memory(address, line);
+        vm.memory.write(address, line);
         address += 1;
     }
     vm.step();
     vm.step();
 
-    assert_eq!(1, vm.registers.get(Register::R0 as u16));
-    assert_eq!(2, vm.registers.get(Register::R1 as u16));
+    assert_eq!(1, vm.registers.get(Register::R0.into()));
+    assert_eq!(2, vm.registers.get(Register::R1.into()));
 }
 
 #[test]
@@ -28,13 +29,14 @@ fn register_mode() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
+    vm.registers.set(Register::PC.into(), address);
     for line in binary {
-        vm.write_memory(address, line);
+        vm.memory.write(address, line);
         address += 1;
     }
     vm.step();
     vm.step();
     vm.step();
 
-    assert_eq!(3, vm.registers.get(Register::R2 as u16));
+    assert_eq!(3, vm.registers.get(Register::R2.into()));
 }
