@@ -3,7 +3,7 @@
 
 use std::str::FromStr;
 
-use crate::{Register, VirtualMachine, MEMORY_SIZE};
+use crate::{Register, VirtualMachine};
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
@@ -174,12 +174,9 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
     let offset = sign_extend(instruction & 0x1FF, 9);
     let pc = vm.registers.get(Register::PC.into());
 
-    let address: u32 = pc as u32 + offset as u32;
-    if address > MEMORY_SIZE as u32 {
-        panic!("Tried to access invalid memory address 0x{:X}", address);
-    }
+    let address = (pc as u32 + offset as u32) as u16;
 
-    let value = vm.memory.read(address as u16);
+    let value = vm.memory.read(address);
     vm.registers.set(dr, value);
     vm.registers.update_cond_register(dr);
 }
