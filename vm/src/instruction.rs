@@ -1,4 +1,4 @@
-// Comments before instructions taken from:
+// Portions of comments before instructions taken from:
 // https://github.com/digorithm/LC-3-Rust/blob/main/src/hardware/instruction/mod.rs
 
 use std::str::FromStr;
@@ -103,7 +103,7 @@ pub fn execute(vm: &mut VirtualMachine, instruction: u16) {
         2 => ld(vm, instruction),
         //3 => st(vm, instruction),
         //4 => jsr(vm, instruction),
-        //5 => and(vm, instruction),
+        5 => and(vm, instruction),
         //6 => ldr(vm, instruction),
         //7 => str(vm, instruction),
         //8 => rti(vm, instruction),
@@ -188,11 +188,43 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
 //fn jsr(vm: &mut VirtualMachine, instruction: u16) {
 //    todo!()
 //}
-//
-//fn and(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
+
+/// Bit-wise logical AND
+/// If bit [5] is 0, the second source operand is obtained from SR2. If bit [5] is 1,
+/// the second source operand is obtained by sign-extending the imm5 field to 16
+/// bits. In either case, the second source operand and the contents of SR1 are bitwise
+/// ANDed and the result stored in DR. The condition codes are set, based on
+/// whether the binary value produced, taken as a 2’s complement integer, is negative,
+/// zero, or positive.
+/// Encoding:
+///
+/// 15           12 │11        9│8         6│ 5 │4     3│2         0
+/// ┌───────────────┼───────────┼───────────┼───┼───────┼───────────┐
+/// │      0101     │     DR    │  SR1      │ 0 │  00   │    SR2    │
+/// └───────────────┴───────────┴───────────┴───┴───────┴───────────┘
+///
+///  15           12│11        9│8         6│ 5 │4                 0
+/// ┌───────────────┼───────────┼───────────┼───┼───────────────────┐
+/// │      0101     │     DR    │  SR1      │ 1 │       IMM5        │
+/// └───────────────┴───────────┴───────────┴───┴───────────────────┘
+fn and(vm: &mut VirtualMachine, instruction: u16) {
+    let dr = (instruction >> 9) & 0x7;
+    let sr1 = (instruction >> 6) & 0x7;
+    let imm_flag = (instruction >> 5) & 0x1;
+
+    if imm_flag == 1 {
+        let imm5 = sign_extend(instruction & 0x1F, 5);
+        let result = vm.registers.get(sr1) & imm5;
+        vm.registers.set(dr, result);
+    } else {
+        let sr2 = instruction & 0x7;
+        let result = vm.registers.get(sr1) & vm.registers.get(sr2);
+        vm.registers.set(dr, result);
+    }
+
+    vm.registers.update_cond_register(dr);
+}
+
 //fn ldr(vm: &mut VirtualMachine, instruction: u16) {
 //    todo!()
 //}
