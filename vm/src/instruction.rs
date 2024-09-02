@@ -1,6 +1,3 @@
-// Portions of comments before instructions taken from:
-// https://github.com/digorithm/LC-3-Rust/blob/main/src/hardware/instruction/mod.rs
-
 use std::str::FromStr;
 
 use crate::{Register, VirtualMachine};
@@ -122,18 +119,14 @@ pub fn execute(vm: &mut VirtualMachine, instruction: u16) {
 //    todo!()
 //}
 
-/// ADD takes two values and stores them in a register.
-/// In register mode, the second value to add is found in a register.
-/// In immediate mode, the second value is embedded in the right-most 5 bits of the instruction.
-/// Values which are shorter than 16 bits need to be sign extended.
-/// Any time an instruction modifies a register, the condition flags need to be updated
-/// If bit [5] is 0, the second source operand is obtained from SR2.
-/// If bit [5] is 1, the second source operand is obtained by sign-extending the imm5 field to 16 bits.
-/// In both cases, the second source operand is added to the contents of SR1 and the result stored in DR.
-/// The condition codes are set, based on whether the result is negative, zero, or positive.
-/// Encoding:
+/// Add
+/// If bit [5] is 0, the second source operand is obtained from SR2. If bit [5] is 1, the
+/// second source operand is obtained by sign-extending the imm5 field to 16 bits.
+/// In both cases, the second source operand is added to the contents of SR1 and the
+/// result stored in DR. The condition codes are set, based on whether the result is
+/// negative, zero, or positive.
 ///
-/// 15           12 │11        9│8         6│ 5 │4     3│2         0
+///  15           12│11        9│8         6│ 5 │4     3│2         0
 /// ┌───────────────┼───────────┼───────────┼───┼───────┼───────────┐
 /// │      0001     │     DR    │  SR1      │ 0 │  00   │    SR2    │
 /// └───────────────┴───────────┴───────────┴───┴───────┴───────────┘
@@ -160,10 +153,12 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
     vm.registers.update_cond_register(dr);
 }
 
-/// An address is computed by sign-extending bits [8:0] to 16 bits and
-/// adding this value to the incremented PC.
-/// The contents of memory at this address are loaded into DR.
-/// The condition codes are set, based on whether the value loaded is negative, zero, or positive.
+/// Load
+/// An address is computed by sign-extending bits [8:0] to 16 bits and adding
+/// this value to the incremented PC. If the address is to privileged memory and
+/// PSR[15]=1, initiate ACV exception. If not, the contents of memory at this address
+/// is loaded into DR. The condition codes are set, based on whether the value loaded
+/// is negative, zero, or positive.
 ///
 ///  15           12│11        9│8                                 0
 /// ┌───────────────┼───────────┼───────────────────────────────────┐
@@ -196,9 +191,8 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
 /// ANDed and the result stored in DR. The condition codes are set, based on
 /// whether the binary value produced, taken as a 2’s complement integer, is negative,
 /// zero, or positive.
-/// Encoding:
 ///
-/// 15           12 │11        9│8         6│ 5 │4     3│2         0
+///  15           12│11        9│8         6│ 5 │4     3│2         0
 /// ┌───────────────┼───────────┼───────────┼───┼───────┼───────────┐
 /// │      0101     │     DR    │  SR1      │ 0 │  00   │    SR2    │
 /// └───────────────┴───────────┴───────────┴───┴───────┴───────────┘
