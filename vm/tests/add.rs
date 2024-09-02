@@ -1,7 +1,7 @@
 use vm::{Register, VirtualMachine};
 
 #[test]
-fn immediate_mode() {
+fn immediate_mode_positive() {
     // 0001 000 000 1 00001 = 0x1021 = ADD R0 R0 1
     // 0001 001 001 1 00010 = 0x1262 = ADD R1 R1 2
     let binary = vec![0x1021, 0x1262];
@@ -18,6 +18,29 @@ fn immediate_mode() {
 
     assert_eq!(1, vm.registers.get(Register::R0.into()));
     assert_eq!(2, vm.registers.get(Register::R1.into()));
+}
+
+#[test]
+fn immediate_mode_negative() {
+    // 0001 000 000 1 11111 = 0x103F = ADD R0 R0 -1
+    // 0001 001 001 1 11110 = 0x127E = ADD R1 R1 -2
+    // 0001 010 001 1 11110 = 0x127E = ADD R2 R1 -2
+    let binary = vec![0x103F, 0x127E, 0x147E];
+    let mut address = 0x3000;
+
+    let mut vm = VirtualMachine::new();
+    vm.registers.set(Register::PC.into(), address);
+    for line in binary {
+        vm.memory.write(address, line);
+        address += 1;
+    }
+    vm.step();
+    vm.step();
+    vm.step();
+
+    assert_eq!(0xFFFF, vm.registers.get(Register::R0.into()));
+    assert_eq!(0xFFFE, vm.registers.get(Register::R1.into()));
+    assert_eq!(0xFFFC, vm.registers.get(Register::R2.into()));
 }
 
 #[test]

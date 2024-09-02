@@ -149,7 +149,7 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
 
     if imm_flag == 1 {
         let imm5 = sign_extend(instruction & 0x1F, 5);
-        let result = vm.registers.get(sr1) + imm5;
+        let result = (vm.registers.get(sr1) as u32 + imm5 as u32) as u16;
         vm.registers.set(dr, result);
     } else {
         let sr2 = instruction & 0x7;
