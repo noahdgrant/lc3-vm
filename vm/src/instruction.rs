@@ -166,11 +166,11 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
     if imm_flag == 1 {
         let imm5 = sign_extend(instruction & 0x1F, 5);
         let result = vm.registers.get(sr1) + imm5;
-        vm.registers.update(dr, result);
+        vm.registers.set(dr, result);
     } else {
         let sr2 = instruction & 0x7;
         let result = vm.registers.get(sr1) + vm.registers.get(sr2);
-        vm.registers.update(dr, result);
+        vm.registers.set(dr, result);
     }
 
     vm.registers.update_cond_register(dr);
@@ -196,7 +196,7 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
     }
 
     let value = vm.read_memory(address as u16);
-    vm.registers.update(dr, value);
+    vm.registers.set(dr, value);
     vm.registers.update_cond_register(dr);
 }
 

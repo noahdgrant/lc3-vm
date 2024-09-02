@@ -1,7 +1,5 @@
 use std::str::FromStr;
 
-const PC_START: u16 = 0x3000;
-
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
 pub enum Register {
@@ -39,25 +37,37 @@ impl FromStr for Register {
     }
 }
 
+impl From<Register> for u16 {
+    fn from(register: Register) -> Self {
+        register as u16
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
 enum ConditionalFlag {
-    POS = 1 << 0, // Positive
-    ZRO = 1 << 1, // Zero
-    NEG = 1 << 2, // Negative
+    POS = 1 << 0,
+    ZRO = 1 << 1,
+    NEG = 1 << 2,
+}
+
+impl From<ConditionalFlag> for u16 {
+    fn from(flag: ConditionalFlag) -> Self {
+        flag as u16
+    }
 }
 
 pub struct Registers {
-    pub r0: u16,
-    pub r1: u16,
-    pub r2: u16,
-    pub r3: u16,
-    pub r4: u16,
-    pub r5: u16,
-    pub r6: u16,
-    pub r7: u16,
-    pub pc: u16,
-    pub cond: u16,
+    r0: u16,
+    r1: u16,
+    r2: u16,
+    r3: u16,
+    r4: u16,
+    r5: u16,
+    r6: u16,
+    r7: u16,
+    pc: u16,
+    cond: u16,
 }
 
 impl Registers {
@@ -71,7 +81,7 @@ impl Registers {
             r5: 0,
             r6: 0,
             r7: 0,
-            pc: PC_START, // TODO: change with to 0 and read from .asm file
+            pc: 0,
             cond: 0,
         }
     }
@@ -88,11 +98,11 @@ impl Registers {
             7 => self.r7,
             8 => self.pc,
             9 => self.cond,
-            _ => panic!("Unknown register"),
+            _ => panic!("Can't get unknown register {register}"),
         }
     }
 
-    pub fn update(&mut self, register: u16, value: u16) {
+    pub fn set(&mut self, register: u16, value: u16) {
         match register {
             0 => self.r0 = value,
             1 => self.r1 = value,
@@ -104,18 +114,18 @@ impl Registers {
             7 => self.r7 = value,
             8 => self.pc = value,
             9 => self.cond = value,
-            _ => panic!("Unknown register"),
+            _ => panic!("Can't set unknown register {register}"),
         }
     }
 
     pub fn update_cond_register(&mut self, register: u16) {
         if self.get(register) == 0 {
-            self.update(Register::COND as u16, ConditionalFlag::ZRO as u16);
+            self.set(Register::COND.into(), ConditionalFlag::ZRO.into());
         } else if (self.get(register) >> 15) != 0 {
             // NOTE: A 1 in the left-most bit indicates a negative
-            self.update(Register::COND as u16, ConditionalFlag::NEG as u16);
+            self.set(Register::COND.into(), ConditionalFlag::NEG.into());
         } else {
-            self.update(Register::COND as u16, ConditionalFlag::POS as u16);
+            self.set(Register::COND.into(), ConditionalFlag::POS.into());
         }
     }
 
