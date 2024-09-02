@@ -274,14 +274,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_sign_extend_positive() {
+    fn sign_extend_positive() {
         let x: u16 = 3;
         let value = sign_extend(x, 5);
         assert_eq!(3, value);
     }
 
     #[test]
-    fn test_sign_extend_negative() {
+    fn sign_extend_negative() {
         let x: i16 = -5;
         let value = sign_extend(x as u16, 5);
         assert_eq!(0xFFFB, value);

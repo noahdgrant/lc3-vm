@@ -2,12 +2,12 @@ use std::env;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-use lc3_vm::VirtualMachine;
+use vm::VirtualMachine;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        panic!("Usage: {} <file>", args[0]);
+        panic!("Usage: {} <file.obj>", args[0]);
     }
 
     let file_path = &args[1];

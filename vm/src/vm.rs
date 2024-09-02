@@ -32,10 +32,11 @@ impl VirtualMachine {
         self.read_memory(pc)
     }
 
-    fn step(&mut self) {
-        self.dump_registers();
+    pub fn step(&mut self) {
+        //self.dump_registers();
 
         let instruction = self.fetch();
+        // TODO: turn this into debug log
         println!("Executing 0x{:X}\n", instruction);
 
         self.registers.increment_pc_register();
