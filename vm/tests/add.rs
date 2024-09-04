@@ -8,7 +8,6 @@ fn immediate_mode_positive() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;
@@ -29,7 +28,6 @@ fn immediate_mode_negative() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;
@@ -52,7 +50,6 @@ fn register_mode() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;

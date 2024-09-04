@@ -7,7 +7,6 @@ fn zero_offset() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;
@@ -24,7 +23,6 @@ fn positive_offset() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;
@@ -41,7 +39,6 @@ fn negative_offset() {
     let mut address = 0x3000;
 
     let mut vm = VirtualMachine::new();
-    vm.registers.set(Register::PC.into(), address);
     for line in binary {
         vm.memory.write(address, line);
         address += 1;
