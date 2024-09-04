@@ -2,6 +2,9 @@ use std::str::FromStr;
 
 use crate::{Register, VirtualMachine};
 
+// TODO: Update instruction to deal with privileged memory
+// TODO: Write tests for instructions
+
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Opcode {
@@ -21,7 +24,7 @@ pub enum Opcode {
     LDR,
     /// Store register (store base + offset)
     STR,
-    /// Unused
+    /// Return from trap or interrupt
     RTI,
     /// Bitwise not
     NOT,
@@ -95,29 +98,47 @@ pub fn execute(vm: &mut VirtualMachine, instruction: u16) {
     let opcode = instruction >> 12;
 
     match opcode {
-        //0 => br(vm, instruction),
+        0 => br(vm, instruction),
         1 => add(vm, instruction),
         2 => ld(vm, instruction),
-        //3 => st(vm, instruction),
-        //4 => jsr(vm, instruction),
+        3 => st(vm, instruction),
+        4 => jsr(vm, instruction),
         5 => and(vm, instruction),
-        //6 => ldr(vm, instruction),
-        //7 => str(vm, instruction),
-        //8 => rti(vm, instruction),
-        //9 => not(vm, instruction),
-        //10 => ldi(vm, instruction),
-        //11 => sti(vm, instruction),
-        //12 => jmp(vm, instruction),
-        //13 => res(vm, instruction),
-        //14 => lea(vm, instruction),
-        //15 => trap(vm, instruction),
+        6 => ldr(vm, instruction),
+        7 => str(vm, instruction),
+        8 => rti(vm, instruction),
+        9 => not(vm, instruction),
+        10 => ldi(vm, instruction),
+        11 => sti(vm, instruction),
+        12 => jmp(vm, instruction),
+        13 => res(vm, instruction),
+        14 => lea(vm, instruction),
+        15 => trap(vm, instruction),
         _ => panic!("Unknown opcode {opcode}"),
     }
 }
 
-//fn br(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
+/// Branch
+/// The condition codes specified by bits [11:9] are tested. If bit [11] is 1, N is tested;
+/// if bit [11] is 0, N is not tested. If bit [10] is 1, Z is tested, etc. If any of the condition
+/// codes tested is 1, the program branches to the memory location specified by
+/// adding the sign-extended PCoffset9 field to the incremented PC.
+///
+///  15           12│11 │10 │ 9 │8                                 0
+/// ┌───────────────┼───┼───┼───┼───────────────────────────────────┐
+/// │      0000     │ N │ Z │ P │             PCOffset9             │
+/// └───────────────┴───┴───┴───┴───────────────────────────────────┘
+fn br(vm: &mut VirtualMachine, instruction: u16) {
+    let flags = (instruction >> 9) & 0x7;
+
+    if flags & vm.registers.get(Register::COND.into()) != 0 {
+        let offset = sign_extend(instruction & 0x1FF, 9);
+        let pc = vm.registers.get(Register::PC.into());
+        let address = (pc as u32 + offset as u32) as u16;
+
+        vm.registers.set(Register::PC.into(), address);
+    }
+}
 
 /// Add
 /// If bit [5] is 0, the second source operand is obtained from SR2. If bit [5] is 1, the
@@ -176,13 +197,59 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
     vm.registers.update_cond_register(dr);
 }
 
-//fn st(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn jsr(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
+/// Store
+/// If the computed address is to privileged memory and PSR[15]=1, initiate ACV
+/// exception. If not, the contents of the register specified by SR is stored in the
+/// memory location whose address is computed by sign-extending bits [8:0] to 16
+/// bits and adding this value to the incremented PC.
+///
+///  15           12│11        9│8                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      0011     │     SR    │            PCOffset9              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
+fn st(vm: &mut VirtualMachine, instruction: u16) {
+    let sr = (instruction >> 9) & 0x7;
+    let offset = sign_extend(instruction & 0x1FF, 9);
+    let pc = vm.registers.get(Register::PC.into());
+
+    let value = vm.registers.get(sr);
+    let address = (pc as u32 + offset as u32) as u16;
+    vm.memory.write(address, value);
+}
+
+/// Jump to subroutine
+/// First, the incremented PC is saved in a temporary location. Then the PC is loaded
+/// with the address of the first instruction of the subroutine, which will cause an
+/// unconditional jump to that address after the current instruction completes execution.
+/// The address of the subroutine is obtained from the base register (if bit [11]
+/// is 0), or the address is computed by sign-extending bits [10:0] and adding this
+/// value to the incremented PC (if bit [11] is 1). Finally, R7 is loaded with the value
+/// stored in the temporary location. This is the linkage back to the calling routine.
+///
+///  15           12│11 │10                                        0
+/// ┌───────────────┼───┼───────────────────────────────────────────┐
+/// │      0100     │ 1 │                PCOffset11                 │
+/// └───────────────┴───┴───────────────────────────────────────────┘
+///
+///  15           12│11 │10    9│8     6│5                         0
+/// ┌───────────────┼───┼───────┼───────┼───────────────────────────┐
+/// │      0100     │ 0 │   00  │ BaseR │           00000           │
+/// └───────────────┴───┴───────┴───────┴───────────────────────────┘
+fn jsr(vm: &mut VirtualMachine, instruction: u16) {
+    let flag = (instruction >> 11) & 0x1;
+    let pc = vm.registers.get(Register::PC.into());
+    vm.registers.set(Register::R7.into(), pc);
+
+    if flag == 1 {
+        let offset = sign_extend(instruction & 0x7FF, 11);
+        let address = (pc as u32 + offset as u32) as u16;
+        vm.registers.set(Register::PC.into(), address);
+    } else {
+        let reg = (instruction >> 6) & 0x7;
+        let address = vm.registers.get(reg);
+        vm.registers.set(Register::PC.into(), address);
+    }
+}
 
 /// Bit-wise logical AND
 /// If bit [5] is 0, the second source operand is obtained from SR2. If bit [5] is 1,
@@ -219,45 +286,189 @@ fn and(vm: &mut VirtualMachine, instruction: u16) {
     vm.registers.update_cond_register(dr);
 }
 
-//fn ldr(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn str(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn rti(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn not(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn ldi(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn sti(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn jmp(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn res(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn lea(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
-//
-//fn trap(vm: &mut VirtualMachine, instruction: u16) {
-//    todo!()
-//}
+/// Load base+offset
+/// An address is computed by sign-extending bits [5:0] to 16 bits and adding this
+/// value to the contents of the register specified by bits [8:6]. If the computed address
+/// is to privileged memory and PSR[15]=1, initiate ACV exception. If not, the contents
+/// of memory at this address is loaded into DR. The condition codes are set,
+/// based on whether the value loaded is negative, zero, or positive.
+///
+///  15           12│11        9│8             6│5                 0
+/// ┌───────────────┼───────────┼───────────────┼───────────────────┐
+/// │      1010     │     DR    │     BaseR     │     PCOffset6     │
+/// └───────────────┴───────────┴───────────────┴───────────────────┘
+fn ldr(vm: &mut VirtualMachine, instruction: u16) {
+    let dr = (instruction >> 9) & 0x7;
+    let reg = (instruction >> 6) & 0x7;
+    let offset = sign_extend(instruction & 0x3F, 6);
+
+    let address = (vm.registers.get(reg) as u32 + offset as u32) as u16;
+    let value = vm.memory.read(address);
+    vm.registers.set(dr, value);
+    vm.registers.update_cond_register(dr);
+}
+
+/// Store base+offset
+/// If the computed address is to privileged memory and PSR[15]=1, initiate ACV
+/// exception. If not, the contents of the register specified by SR is stored in the
+/// memory location whose address is computed by sign-extending bits [5:0] to 16
+/// bits and adding this value to the contents of the register specified by bits [8:6].
+///
+///  15           12│11        9│8         6│                      0
+/// ┌───────────────┼───────────┼───────────┼───────────────────────┐
+/// │      0111     │     SR    │   BaseR   │        PCOffset6      │
+/// └───────────────┴───────────┴───────────┴───────────────────────┘
+fn str(vm: &mut VirtualMachine, instruction: u16) {
+    let sr = (instruction >> 9) & 0x7;
+    let reg = (instruction >> 6) & 0x7;
+    let offset = sign_extend(instruction & 0x3F, 6);
+
+    let address = (vm.registers.get(reg) as u32 + offset as u32) as u16;
+    let value = vm.registers.get(sr);
+    vm.memory.write(address, value)
+}
+
+/// Return from trap or interrupt
+/// If the processor is running in User mode, a privilege mode exception occurs. If
+/// in Supervisor mode, the top two elements on the system stack are popped and
+/// loaded into PC, PSR. After PSR is restored, if the processor is running in User
+/// mode, the SSP is saved in Saved SSP, and R6 is loaded with Saved USP.
+///
+///  15           12│11                                            0
+/// ┌───────────────┼───────────────────────────────────────────────┐
+/// │      1000     │                  000000000000                 │
+/// └───────────────┴───────────────────────────────────────────────┘
+fn rti(_vm: &mut VirtualMachine, _instruction: u16) {
+    todo!("Figure out how to implement this instruction");
+}
+
+// Bit-wise complement
+/// The bit-wise complement of the contents of SR is stored in DR. The condition
+/// codes are set, based on whether the binary value produced, taken as a 2’s
+/// complement integer, is negative, zero, or positive.
+///
+///  15          12 │11        9│8         6│ 5 │4                 0
+/// ┌───────────────┼───────────┼───────────┼───┼───────────────────┐
+/// │      1001     │     DR    │     SR    │ 1 │       1111        │
+/// └───────────────┴───────────┴───────────┴───┴───────────────────┘
+fn not(vm: &mut VirtualMachine, instruction: u16) {
+    let dr = (instruction >> 9) & 0x7;
+    let sr = (instruction >> 6) & 0x7;
+
+    let value = vm.registers.get(sr);
+    vm.registers.set(dr, !value);
+    vm.registers.update_cond_register(dr);
+}
+
+/// Load indirect
+/// An address is computed by sign-extending bits [8:0] to 16 bits and adding this
+/// value to the incremented PC. What is stored in memory at this address is the
+/// address of the data to be loaded into DR. If either address is to privileged memory
+/// and PSR[15]=1, initiate ACV exception. If not, the data is loaded and the
+/// condition codes are set, based on whether the value loaded is negative, zero, or
+/// positive.
+///
+///  15           12│11        9│8                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      0010     │     DR    │            PCOffset9              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
+fn ldi(vm: &mut VirtualMachine, instruction: u16) {
+    let dr = (instruction >> 9) & 0x7;
+    let offset = sign_extend(instruction & 0x1FF, 9);
+    let pc = vm.registers.get(Register::PC.into());
+
+    let indirect_address = (pc as u32 + offset as u32) as u16;
+
+    let address = vm.memory.read(indirect_address);
+    vm.registers.set(dr, address);
+    vm.registers.update_cond_register(dr);
+}
+
+/// Store indirect
+/// If either computed address is to privileged memory and PSR[15]=1, initiate
+/// ACV exception. If not, the contents of the register specified by SR is stored
+/// in the memory location whose address is obtained as follows: Bits [8:0] are signextended
+/// to 16 bits and added to the incremented PC. What is in memory at this
+/// address is the address of the location to which the data in SR is stored.
+///
+///  15           12│11        9│8                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      1011     │     SR    │            PCOffset9              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
+fn sti(vm: &mut VirtualMachine, instruction: u16) {
+    let sr = (instruction >> 9) & 0x7;
+    let offset = sign_extend(instruction & 0x1FF, 9);
+    let pc = vm.registers.get(Register::PC.into());
+
+    let value = vm.registers.get(sr);
+
+    let address_indirect = (pc as u32 + offset as u32) as u16;
+    let address = vm.memory.read(address_indirect);
+    vm.memory.write(address, value);
+}
+
+/// Jump
+/// The program unconditionally jumps to the location specified by the contents of
+/// the base register. Bits [8:6] identify the base register.
+///
+/// The RET instruction is a special case of the JMP instruction, normally used in the
+/// return from a subroutine. The PC is loaded with the contents of R7, which contains
+/// the linkage back to the instruction following the subroutine call instruction.
+///
+///  15           12│11        9│8         6│5                     0
+/// ┌───────────────┼───────────┼───────────┼───────────────────────┐
+/// │      1100     │    000    │   BaseR   │       00000           │
+/// └───────────────┴───────────┴───────────┴───────────────────────┘
+///
+///  15           12│11        9│8         6│5                     0
+/// ┌───────────────┼───────────┼───────────┼───────────────────────┐
+/// │      1100     │    000    │    111    │       00000           │
+/// └───────────────┴───────────┴───────────┴───────────────────────┘
+fn jmp(vm: &mut VirtualMachine, instruction: u16) {
+    let reg = (instruction >> 6) & 0x7;
+    let address = vm.registers.get(reg);
+    vm.registers.set(Register::PC.into(), address);
+}
+
+/// Reserved (unused)
+fn res(_vm: &mut VirtualMachine, _instruction: u16) {
+    todo!("Initiate an illegal opcode exception");
+}
+
+/// Load effective address
+/// An address is computed by sign-extending bits [8:0] to 16 bits and adding this
+/// value to the incremented PC. This address is loaded into DR.
+///
+///  15           12│11        9│8                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      1110     │     DR    │            PCOffset9              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
+fn lea(vm: &mut VirtualMachine, instruction: u16) {
+    let dr = (instruction >> 9) & 0x7;
+    let offset = sign_extend(instruction & 0x1FF, 9);
+    let pc = vm.registers.get(Register::PC.into());
+
+    let address = (pc as u32 + offset as u32) as u16;
+    vm.registers.set(dr, address);
+}
+
+/// System call
+/// If the the program is executing in User mode, the User Stack Pointer must be
+/// saved and the System Stack Pointer loaded. Then the PSR and PC are pushed
+/// on the system stack. (This enables a return to the instruction physically following
+/// the TRAP instruction in the original program after the last instruction in the
+/// service routine (RTI) has completed execution.) Then the PC is loaded with the
+/// starting address of the system call specified by trapvector8. The starting address
+/// is contained in the memory location whose address is obtained by zero-extending
+/// trapvector8 to 16 bits.
+///
+///  15           12│11        8│7                                 0
+/// ┌───────────────┼───────────┼───────────────────────────────────┐
+/// │      1111     │    0000   │            trapvect8              │
+/// └───────────────┴───────────┴───────────────────────────────────┘
+fn trap(_vm: &mut VirtualMachine, _instruction: u16) {
+    todo!("Implement based on textbook explanation");
+}
 
 fn sign_extend(mut x: u16, bit_count: u8) -> u16 {
     // bit_count is the original number of bits

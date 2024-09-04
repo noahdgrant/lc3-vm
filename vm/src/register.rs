@@ -45,7 +45,7 @@ impl From<Register> for u16 {
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
-enum ConditionalFlag {
+pub enum ConditionalFlag {
     Positive = 1 << 0,
     Zero = 1 << 1,
     Negative = 1 << 2,
