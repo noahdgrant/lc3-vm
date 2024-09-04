@@ -2,6 +2,7 @@ use crate::instruction;
 use crate::memory::{Memory, MEMORY_SIZE};
 use crate::register::{Register, Registers};
 
+#[derive(Default)]
 pub struct VirtualMachine {
     pub registers: Registers,
     pub memory: Memory,
@@ -31,11 +32,5 @@ impl VirtualMachine {
         while self.registers.get(Register::PC.into()) < MEMORY_SIZE as u16 {
             self.step();
         }
-    }
-}
-
-impl Default for VirtualMachine {
-    fn default() -> Self {
-        Self::new()
     }
 }

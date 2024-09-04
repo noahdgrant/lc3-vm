@@ -131,7 +131,7 @@ pub fn execute(vm: &mut VirtualMachine, instruction: u16) {
 fn br(vm: &mut VirtualMachine, instruction: u16) {
     let flags = (instruction >> 9) & 0x7;
 
-    if flags & vm.registers.get(Register::COND.into()) != 0 {
+    if flags & vm.registers.get(Register::PSR.into()) != 0 {
         let offset = sign_extend(instruction & 0x1FF, 9);
         let pc = vm.registers.get(Register::PC.into());
         let address = (pc as u32 + offset as u32) as u16;

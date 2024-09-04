@@ -12,7 +12,7 @@ pub enum Register {
     R6,
     R7,
     PC,
-    COND,
+    PSR,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -31,7 +31,7 @@ impl FromStr for Register {
             "R6" => Ok(Register::R6),
             "R7" => Ok(Register::R7),
             "PC" => Ok(Register::PC),
-            "COND" => Ok(Register::COND),
+            "PSR" => Ok(Register::PSR),
             _ => Err(RegisterError),
         }
     }
@@ -57,6 +57,7 @@ impl From<ConditionalFlag> for u16 {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct Registers {
     r0: u16,
     r1: u16,
@@ -67,7 +68,7 @@ pub struct Registers {
     r6: u16,
     r7: u16,
     pc: u16,
-    cond: u16,
+    psr: u16,
 }
 
 impl Registers {
@@ -82,7 +83,7 @@ impl Registers {
             r6: 0,
             r7: 0,
             pc: 0x3000,
-            cond: 0,
+            psr: 0x8002,
         }
     }
 
@@ -97,7 +98,7 @@ impl Registers {
             6 => self.r6,
             7 => self.r7,
             8 => self.pc,
-            9 => self.cond,
+            9 => self.psr,
             _ => panic!("Can't get unknown register {register}"),
         }
     }
@@ -113,7 +114,7 @@ impl Registers {
             6 => self.r6 = value,
             7 => self.r7 = value,
             8 => self.pc = value,
-            9 => self.cond = value,
+            9 => self.psr = value,
             _ => panic!("Can't set unknown register {register}"),
         }
     }
@@ -128,33 +129,27 @@ impl Registers {
             self.get(Register::R4.into())
         );
         println!(
-            "R5: 0x{:04X} | R6: 0x{:04X} | R7: 0x{:04X} | PC: 0x{:04X} | COND: 0x{:04X}",
+            "R5: 0x{:04X} | R6: 0x{:04X} | R7: 0x{:04X} | PC: 0x{:04X} | PSR: 0x{:04X}",
             self.get(Register::R5.into()),
             self.get(Register::R6.into()),
             self.get(Register::R7.into()),
             self.get(Register::PC.into()),
-            self.get(Register::COND.into())
+            self.get(Register::PSR.into())
         );
     }
 
     pub fn update_cond_register(&mut self, register: u16) {
         if self.get(register) == 0 {
-            self.set(Register::COND.into(), ConditionalFlag::Zero.into());
+            self.set(Register::PSR.into(), ConditionalFlag::Zero.into());
         } else if (self.get(register) >> 15) != 0 {
             // NOTE: A 1 in the left-most bit indicates a negative
-            self.set(Register::COND.into(), ConditionalFlag::Negative.into());
+            self.set(Register::PSR.into(), ConditionalFlag::Negative.into());
         } else {
-            self.set(Register::COND.into(), ConditionalFlag::Positive.into());
+            self.set(Register::PSR.into(), ConditionalFlag::Positive.into());
         }
     }
 
     pub fn increment_pc_register(&mut self) {
         self.pc += 1;
-    }
-}
-
-impl Default for Registers {
-    fn default() -> Self {
-        Self::new()
     }
 }
