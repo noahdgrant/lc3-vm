@@ -18,7 +18,9 @@ impl VirtualMachine {
 
     fn fetch(&mut self) -> u16 {
         let pc = self.registers.get(Register::PC.into());
-        self.memory.read(pc)
+        let instruction = self.memory.read(pc);
+        self.registers.set(Register::IR.into(), instruction);
+        instruction
     }
 
     pub fn step(&mut self) {

@@ -12,6 +12,7 @@ pub enum Register {
     R6,
     R7,
     PC,
+    IR,
     PSR,
 }
 
@@ -31,6 +32,7 @@ impl FromStr for Register {
             "R6" => Ok(Register::R6),
             "R7" => Ok(Register::R7),
             "PC" => Ok(Register::PC),
+            "IR" => Ok(Register::IR),
             "PSR" => Ok(Register::PSR),
             _ => Err(RegisterError),
         }
@@ -68,6 +70,7 @@ pub struct Registers {
     r6: u16,
     r7: u16,
     pc: u16,
+    ir: u16,
     psr: u16,
 }
 
@@ -83,6 +86,7 @@ impl Registers {
             r6: 0,
             r7: 0,
             pc: 0x3000,
+            ir: 0,
             psr: 0x8002,
         }
     }
@@ -98,7 +102,8 @@ impl Registers {
             6 => self.r6,
             7 => self.r7,
             8 => self.pc,
-            9 => self.psr,
+            9 => self.ir,
+            10 => self.psr,
             _ => panic!("Can't get unknown register {register}"),
         }
     }
@@ -114,26 +119,28 @@ impl Registers {
             6 => self.r6 = value,
             7 => self.r7 = value,
             8 => self.pc = value,
-            9 => self.psr = value,
+            9 => self.ir = value,
+            10 => self.psr = value,
             _ => panic!("Can't set unknown register {register}"),
         }
     }
 
     pub fn dump(&self) {
         println!(
-            "R0: 0x{:04X} | R1: 0x{:04X} | R2: 0x{:04X} | R3: 0x{:04X} | R4: 0x{:04X}",
+            "R0: 0x{:04X} | R1: 0x{:04X} | R2: 0x{:04X} | R3: 0x{:04X} | R4: 0x{:04X} | R5: 0x{:04X}",
             self.get(Register::R0.into()),
             self.get(Register::R1.into()),
             self.get(Register::R2.into()),
             self.get(Register::R3.into()),
-            self.get(Register::R4.into())
+            self.get(Register::R4.into()),
+            self.get(Register::R5.into()),
         );
         println!(
-            "R5: 0x{:04X} | R6: 0x{:04X} | R7: 0x{:04X} | PC: 0x{:04X} | PSR: 0x{:04X}",
-            self.get(Register::R5.into()),
+            "R6: 0x{:04X} | R7: 0x{:04X} | PC: 0x{:04X} | IR: 0x{:04X} | PSR: 0x{:04X}",
             self.get(Register::R6.into()),
             self.get(Register::R7.into()),
             self.get(Register::PC.into()),
+            self.get(Register::IR.into()),
             self.get(Register::PSR.into())
         );
     }
