@@ -17,6 +17,7 @@ fn immediate_mode_positive() {
 
     assert_eq!(1, vm.registers.get(Register::R0.into()));
     assert_eq!(2, vm.registers.get(Register::R1.into()));
+    assert_eq!(1, 0x0001 & vm.registers.get(Register::PSR.into()));
 }
 
 #[test]
@@ -39,6 +40,24 @@ fn immediate_mode_negative() {
     assert_eq!(0xFFFF, vm.registers.get(Register::R0.into()));
     assert_eq!(0xFFFE, vm.registers.get(Register::R1.into()));
     assert_eq!(0xFFFC, vm.registers.get(Register::R2.into()));
+    assert_eq!(1, (0x0004 & vm.registers.get(Register::PSR.into())) >> 2);
+}
+
+#[test]
+fn immediate_mode_zero() {
+    // 0001 000 000 1 00000 = 0x1020 = ADD R0 R0 0
+    let binary = vec![0x1020];
+    let mut address = 0x3000;
+
+    let mut vm = VirtualMachine::new();
+    for line in binary {
+        vm.memory.write(address, line);
+        address += 1;
+    }
+    vm.step();
+
+    assert_eq!(0, vm.registers.get(Register::R0.into()));
+    assert_eq!(1, (0x0002 & vm.registers.get(Register::PSR.into())) >> 1);
 }
 
 #[test]
@@ -59,4 +78,5 @@ fn register_mode() {
     vm.step();
 
     assert_eq!(3, vm.registers.get(Register::R2.into()));
+    assert_eq!(1, (0x0001 & vm.registers.get(Register::PSR.into())));
 }

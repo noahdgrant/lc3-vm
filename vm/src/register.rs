@@ -45,6 +45,10 @@ impl From<Register> for u16 {
     }
 }
 
+/// Bits [2:0] of the PSR register
+/// Bit 2: Negative
+/// Bit 1: Zero
+/// Bit 0: Positive
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
 pub enum ConditionalFlag {
@@ -145,14 +149,25 @@ impl Registers {
         );
     }
 
-    pub fn update_cond_register(&mut self, register: u16) {
+    pub fn update_conditional_flags(&mut self, register: u16) {
+        let psr = self.get(Register::PSR.into());
+        let mask = 0xFFF8;
         if self.get(register) == 0 {
-            self.set(Register::PSR.into(), ConditionalFlag::Zero.into());
+            self.set(
+                Register::PSR.into(),
+                (psr & mask) | ConditionalFlag::Zero as u16,
+            );
         } else if (self.get(register) >> 15) != 0 {
             // NOTE: A 1 in the left-most bit indicates a negative
-            self.set(Register::PSR.into(), ConditionalFlag::Negative.into());
+            self.set(
+                Register::PSR.into(),
+                (psr & mask) | ConditionalFlag::Negative as u16,
+            );
         } else {
-            self.set(Register::PSR.into(), ConditionalFlag::Positive.into());
+            self.set(
+                Register::PSR.into(),
+                (psr & mask) | ConditionalFlag::Positive as u16,
+            );
         }
     }
 

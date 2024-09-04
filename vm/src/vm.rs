@@ -18,6 +18,7 @@ impl VirtualMachine {
 
     fn fetch(&mut self) -> u16 {
         let pc = self.registers.get(Register::PC.into());
+        self.registers.increment_pc_register();
         let instruction = self.memory.read(pc);
         self.registers.set(Register::IR.into(), instruction);
         instruction
@@ -25,12 +26,11 @@ impl VirtualMachine {
 
     pub fn step(&mut self) {
         let instruction = self.fetch();
-        self.registers.increment_pc_register();
         instruction::execute(self, instruction);
     }
 
     pub fn run(&mut self) {
-        // TODO: Add 'or HALT' to stop early
+        // TODO: Add 'or HALT' to stop early or maybe change this to just a loop
         while self.registers.get(Register::PC.into()) < MEMORY_SIZE as u16 {
             self.step();
         }

@@ -171,7 +171,7 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
         vm.registers.set(dr, result);
     }
 
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Load
@@ -194,7 +194,7 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
 
     let value = vm.memory.read(address);
     vm.registers.set(dr, value);
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Store
@@ -283,7 +283,7 @@ fn and(vm: &mut VirtualMachine, instruction: u16) {
         vm.registers.set(dr, result);
     }
 
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Load base+offset
@@ -305,7 +305,7 @@ fn ldr(vm: &mut VirtualMachine, instruction: u16) {
     let address = (vm.registers.get(reg) as u32 + offset as u32) as u16;
     let value = vm.memory.read(address);
     vm.registers.set(dr, value);
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Store base+offset
@@ -357,7 +357,7 @@ fn not(vm: &mut VirtualMachine, instruction: u16) {
 
     let value = vm.registers.get(sr);
     vm.registers.set(dr, !value);
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Load indirect
@@ -381,7 +381,7 @@ fn ldi(vm: &mut VirtualMachine, instruction: u16) {
 
     let address = vm.memory.read(indirect_address);
     vm.registers.set(dr, address);
-    vm.registers.update_cond_register(dr);
+    vm.registers.update_conditional_flags(dr);
 }
 
 /// Store indirect
