@@ -35,4 +35,25 @@ impl VirtualMachine {
             self.step();
         }
     }
+
+    pub fn get_mode(&self) -> PrivilegeMode {
+        if ((PrivilegeMode::User as u16) << 15) & self.registers.get(Register::PSR.into()) == 1 {
+            PrivilegeMode::User
+        } else {
+            PrivilegeMode::Privileged
+        }
+    }
+}
+
+#[derive(PartialEq, Eq)]
+#[repr(u16)]
+pub enum PrivilegeMode {
+    Privileged = 0,
+    User = 1,
+}
+
+impl From<PrivilegeMode> for u16 {
+    fn from(mode: PrivilegeMode) -> Self {
+        mode as u16
+    }
 }

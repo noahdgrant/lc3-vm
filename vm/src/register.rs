@@ -45,7 +45,7 @@ impl From<Register> for u16 {
     }
 }
 
-/// Bits [2:0] of the PSR register
+/// Bits \[2:0\] of the PSR register
 /// Bit 2: Negative
 /// Bit 1: Zero
 /// Bit 0: Positive
@@ -149,7 +149,7 @@ impl Registers {
         );
     }
 
-    pub fn update_conditional_flags(&mut self, register: u16) {
+    pub fn set_condition_codes(&mut self, register: u16) {
         let psr = self.get(Register::PSR.into());
         let mask = 0xFFF8;
         if self.get(register) == 0 {

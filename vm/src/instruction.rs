@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
-use crate::{Register, VirtualMachine};
+use crate::{PrivilegeMode, Register, VirtualMachine};
 
-// TODO: Update instruction to deal with privileged memory
 // TODO: Write tests for instructions
 
 #[derive(Debug, Copy, Clone)]
@@ -171,7 +170,7 @@ fn add(vm: &mut VirtualMachine, instruction: u16) {
         vm.registers.set(dr, result);
     }
 
-    vm.registers.update_conditional_flags(dr);
+    vm.registers.set_condition_codes(dr);
 }
 
 /// Load
@@ -191,10 +190,13 @@ fn ld(vm: &mut VirtualMachine, instruction: u16) {
     let pc = vm.registers.get(Register::PC.into());
 
     let address = (pc as u32 + offset as u32) as u16;
-
-    let value = vm.memory.read(address);
-    vm.registers.set(dr, value);
-    vm.registers.update_conditional_flags(dr);
+    if vm.memory.is_privileged(address) && vm.get_mode() == PrivilegeMode::User {
+        todo!("Initiate ACV exception");
+    } else {
+        let value = vm.memory.read(address);
+        vm.registers.set(dr, value);
+        vm.registers.set_condition_codes(dr);
+    }
 }
 
 /// Store
@@ -214,7 +216,11 @@ fn st(vm: &mut VirtualMachine, instruction: u16) {
 
     let value = vm.registers.get(sr);
     let address = (pc as u32 + offset as u32) as u16;
-    vm.memory.write(address, value);
+    if vm.memory.is_privileged(address) && vm.get_mode() == PrivilegeMode::User {
+        todo!("Initiate ACV exception");
+    } else {
+        vm.memory.write(address, value);
+    }
 }
 
 /// Jump to subroutine
@@ -283,7 +289,7 @@ fn and(vm: &mut VirtualMachine, instruction: u16) {
         vm.registers.set(dr, result);
     }
 
-    vm.registers.update_conditional_flags(dr);
+    vm.registers.set_condition_codes(dr);
 }
 
 /// Load base+offset
@@ -303,9 +309,13 @@ fn ldr(vm: &mut VirtualMachine, instruction: u16) {
     let offset = sign_extend(instruction & 0x3F, 6);
 
     let address = (vm.registers.get(reg) as u32 + offset as u32) as u16;
-    let value = vm.memory.read(address);
-    vm.registers.set(dr, value);
-    vm.registers.update_conditional_flags(dr);
+    if vm.memory.is_privileged(address) && vm.get_mode() == PrivilegeMode::User {
+        todo!("Initiate ACV exception");
+    } else {
+        let value = vm.memory.read(address);
+        vm.registers.set(dr, value);
+        vm.registers.set_condition_codes(dr);
+    }
 }
 
 /// Store base+offset
@@ -324,8 +334,12 @@ fn str(vm: &mut VirtualMachine, instruction: u16) {
     let offset = sign_extend(instruction & 0x3F, 6);
 
     let address = (vm.registers.get(reg) as u32 + offset as u32) as u16;
-    let value = vm.registers.get(sr);
-    vm.memory.write(address, value)
+    if vm.memory.is_privileged(address) && vm.get_mode() == PrivilegeMode::User {
+        todo!("Initiate ACV exception");
+    } else {
+        let value = vm.registers.get(sr);
+        vm.memory.write(address, value)
+    }
 }
 
 /// Return from trap or interrupt
@@ -338,8 +352,12 @@ fn str(vm: &mut VirtualMachine, instruction: u16) {
 /// ┌───────────────┼───────────────────────────────────────────────┐
 /// │      1000     │                  000000000000                 │
 /// └───────────────┴───────────────────────────────────────────────┘
-fn rti(_vm: &mut VirtualMachine, _instruction: u16) {
-    todo!("Figure out how to implement this instruction");
+fn rti(vm: &mut VirtualMachine, _instruction: u16) {
+    if vm.get_mode() == PrivilegeMode::User {
+        todo!("Initiate privilege mode exception");
+    } else {
+        todo!("Figure out how to implement this instruction");
+    }
 }
 
 // Bit-wise complement
@@ -357,7 +375,7 @@ fn not(vm: &mut VirtualMachine, instruction: u16) {
 
     let value = vm.registers.get(sr);
     vm.registers.set(dr, !value);
-    vm.registers.update_conditional_flags(dr);
+    vm.registers.set_condition_codes(dr);
 }
 
 /// Load indirect
@@ -378,10 +396,15 @@ fn ldi(vm: &mut VirtualMachine, instruction: u16) {
     let pc = vm.registers.get(Register::PC.into());
 
     let indirect_address = (pc as u32 + offset as u32) as u16;
-
     let address = vm.memory.read(indirect_address);
-    vm.registers.set(dr, address);
-    vm.registers.update_conditional_flags(dr);
+    if (vm.memory.is_privileged(indirect_address) | vm.memory.is_privileged(address))
+        && vm.get_mode() == PrivilegeMode::User
+    {
+        todo!("Initiate ACV exception");
+    } else {
+        vm.registers.set(dr, address);
+        vm.registers.set_condition_codes(dr);
+    }
 }
 
 /// Store indirect
@@ -402,9 +425,15 @@ fn sti(vm: &mut VirtualMachine, instruction: u16) {
 
     let value = vm.registers.get(sr);
 
-    let address_indirect = (pc as u32 + offset as u32) as u16;
-    let address = vm.memory.read(address_indirect);
-    vm.memory.write(address, value);
+    let indirect_address = (pc as u32 + offset as u32) as u16;
+    let address = vm.memory.read(indirect_address);
+    if (vm.memory.is_privileged(indirect_address) | vm.memory.is_privileged(address))
+        && vm.get_mode() == PrivilegeMode::User
+    {
+        todo!("Initiate ACV exception");
+    } else {
+        vm.memory.write(address, value);
+    }
 }
 
 /// Jump
@@ -431,6 +460,11 @@ fn jmp(vm: &mut VirtualMachine, instruction: u16) {
 }
 
 /// Reserved (unused)
+///
+///  15           12│11                                            0
+/// ┌───────────────┼───────────────────────────────────────────────┐
+/// │      1101     │                                               │
+/// └───────────────┴───────────────────────────────────────────────┘
 fn res(_vm: &mut VirtualMachine, _instruction: u16) {
     todo!("Initiate an illegal opcode exception");
 }
@@ -466,7 +500,10 @@ fn lea(vm: &mut VirtualMachine, instruction: u16) {
 /// ┌───────────────┼───────────┼───────────────────────────────────┐
 /// │      1111     │    0000   │            trapvect8              │
 /// └───────────────┴───────────┴───────────────────────────────────┘
-fn trap(_vm: &mut VirtualMachine, _instruction: u16) {
+fn trap(vm: &mut VirtualMachine, _instruction: u16) {
+    if vm.get_mode() == PrivilegeMode::User {
+        todo!("Save stack pointers");
+    }
     todo!("Implement based on textbook explanation");
 }
 
