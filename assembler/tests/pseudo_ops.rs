@@ -1,10 +1,3 @@
-// Test the following pseudo-ops:
-// .ORIG
-// .FILL
-// .BLKW
-// .STRINGZ
-// .END
-
 #[test]
 fn orig_and_end() {
     let program = "
@@ -59,6 +52,26 @@ ADD     R0 R0 5
 fn orig_missing_numeric() {
     let program = "
 .ORIG
+.END
+";
+    let output = assembler::assemble(program.to_string());
+    assert!(output.is_err());
+}
+
+#[test]
+fn error_if_end_has_operands() {
+    let program = "
+.ORIG   x3000
+.END    x3000
+";
+    let output = assembler::assemble(program.to_string());
+    assert!(output.is_err());
+}
+
+#[test]
+fn error_if_orig_given_non_literal() {
+    let program = "
+.ORIG STARTADDR
 .END
 ";
     let output = assembler::assemble(program.to_string());

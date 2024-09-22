@@ -25,11 +25,7 @@ impl Memory {
     }
 
     pub fn is_privileged(&self, address: u16) -> bool {
-        if address < UNPRIVILEGED_MEMORY {
-            true
-        } else {
-            false
-        }
+        address < UNPRIVILEGED_MEMORY
     }
 }
 

@@ -3,6 +3,8 @@ use std::str::FromStr;
 use crate::{PrivilegeMode, Register, VirtualMachine};
 
 // TODO: Write tests for instructions
+// TODO: Implement code for exceptions during instructions
+// TODO: Implement TRAP and RTI instructions
 
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]

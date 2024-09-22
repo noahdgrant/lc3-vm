@@ -16,3 +16,5 @@ HALT                               ; halt the program
 HELLO_STR .STRINGZ "Hello World!"  ; store this string here in the program
 .END                               ; mark the end of the file
 ```
+
+Use xxd to see binary output from file for looking at VM code
