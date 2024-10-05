@@ -19,6 +19,11 @@ fn main() {
     match output {
         Ok(binary) => {
             // TODO: output assembled file to same directory as input file
+            print!("Output: ");
+            for i in &binary {
+                print!("0x{:x} ", i);
+            }
+            println!();
             let _ = write_file(&binary, "test.obj");
         }
         Err(err) => {

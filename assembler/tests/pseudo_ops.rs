@@ -1,11 +1,13 @@
 #[test]
-fn orig_and_end() {
+fn simplest_program() {
     let program = "
 .ORIG   x3000
+HALT
 .END
 ";
+    let binary = vec![0x3000, 0xf025];
     let output = assembler::assemble(program.to_string());
-    assert!(output.is_ok_and(|binary| binary.is_empty()));
+    assert!(output.is_ok_and(|b| b == binary));
 }
 
 #[test]
