@@ -4,13 +4,13 @@ use std::ops::Index;
 
 use std::str::FromStr;
 
-use vm::{Opcode, Register};
+use vm::{Opcode, OpcodeError, Register, RegisterError, TrapCode, TrapCodeError};
 
 // TODO: Add logging system
 // TODO: write cli tool (look at how gcc works)
 // TODO: be able to convert between errors so I can remove unwraps() and expects()
 // TODO: implement the Display trait for my types
-// TODO: the first instruction shoule be the ORIG number
+// Print out the line where an error occurs and line number
 
 // TODO: Add line and column number to error message
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,7 +23,8 @@ pub enum AssemblerError {
     InvalidNumber(String),
     InvalidSymbol(String),
     OrigUsage(String),
-    UnknownPseudoOp(String),
+    Operands(String),
+    UnknownOpcode(String),
 }
 
 impl fmt::Display for AssemblerError {
@@ -31,21 +32,52 @@ impl fmt::Display for AssemblerError {
         match self {
             AssemblerError::EndUsage(s) => write!(f, "{}", s),
             AssemblerError::HaltUsage(s) => write!(f, "{}", s),
-            AssemblerError::InvalidBinary(s) => write!(f, "Invalid binary number: {}", s),
-            AssemblerError::InvalidDecimal(s) => write!(f, "Invalid decimal number: {}", s),
-            AssemblerError::InvalidHex(s) => write!(f, "Invalid hex number: {}", s),
-            AssemblerError::InvalidNumber(s) => write!(f, "Invalid number: {}", s),
-            AssemblerError::InvalidSymbol(s) => write!(f, "Invalid symbol {}", s),
+            AssemblerError::InvalidBinary(s) => write!(f, "{}", s),
+            AssemblerError::InvalidDecimal(s) => write!(f, "{}", s),
+            AssemblerError::InvalidHex(s) => write!(f, "{}", s),
+            AssemblerError::InvalidNumber(s) => write!(f, "{}", s),
+            AssemblerError::InvalidSymbol(s) => write!(f, "{}", s),
             AssemblerError::OrigUsage(s) => write!(f, "{}", s),
-            AssemblerError::UnknownPseudoOp(s) => write!(f, "Unkown Pseudo-op: {}", s),
+            AssemblerError::Operands(s) => write!(f, "{}", s),
+            AssemblerError::UnknownOpcode(s) => write!(f, "{}", s),
         }
     }
 }
 
 impl Error for AssemblerError {}
 
-const INSTRUCTIONS: [&str; 2] = ["ADD", "BRnzp"];
-const DIRECTIVES: [&str; 3] = [".ORIG", ".END", "HALT"];
+impl From<RegisterError> for AssemblerError {
+    fn from(error: RegisterError) -> Self {
+        match error {
+            RegisterError::UnknownRegister(s) => {
+                AssemblerError::Operands(format!("Unknown register {}", s))
+            }
+        }
+    }
+}
+
+impl From<TrapCodeError> for AssemblerError {
+    fn from(error: TrapCodeError) -> Self {
+        match error {
+            TrapCodeError::UnknownTrapCode(s) => {
+                AssemblerError::UnknownOpcode(format!("Unknown trap code {}", s))
+            }
+        }
+    }
+}
+
+impl From<OpcodeError> for AssemblerError {
+    fn from(error: OpcodeError) -> Self {
+        match error {
+            OpcodeError::UnknownOpcode(s) => {
+                AssemblerError::UnknownOpcode(format!("Unknown opcode {}", s))
+            }
+        }
+    }
+}
+
+const INSTRUCTIONS: [&str; 2] = ["ADD", "HALT"];
+const DIRECTIVES: [&str; 2] = [".ORIG", ".END"];
 const PROTECTED_WORDS: [&str; 2] = ["ORIG", "END"];
 
 pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
@@ -77,7 +109,7 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
         }
 
         if end_found {
-            return Err(AssemblerError::EndUsage(format!("{} after .END", line)));
+            return Err(AssemblerError::EndUsage(format!("Code after .END: {line}")));
         }
 
         // Get code before comment if there is a comment at the end of the line
@@ -86,7 +118,7 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
             .split_whitespace()
             .map(|s| s.trim_end_matches(","))
             .collect();
-        let first_part = parts.first().expect("Empty line");
+        let first_part = parts.first().expect("Already checked for empty line");
 
         // STEP 2: Initialize location counter to starting address
         if first_line {
@@ -94,17 +126,18 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
             // TODO: Create a parse_directive() function and move this to it
             if *first_part == ".ORIG" {
                 if parts.len() != 2 {
-                    return Err(AssemblerError::OrigUsage(
-                        ".ORIG usage: .ORIG <numeric> Given: {first_line}".to_string(),
-                    ));
+                    return Err(AssemblerError::OrigUsage(format!(
+                        ".ORIG can only have 1 operand - given: {}",
+                        parts.len() - 1
+                    )));
                 }
-                location_counter = encode_numeric(parts.get(1).expect("Missing numeric"))?;
+                location_counter = encode_numeric(parts.get(1).expect("Already checked length"))?;
                 println!("Starting location: {location_counter:x}");
                 continue;
             } else {
-                return Err(AssemblerError::OrigUsage(
-                    "The first line must be .ORIG".to_string(),
-                ));
+                return Err(AssemblerError::OrigUsage(format!(
+                    ".ORIG cannot have a symbol before it - given: {first_part}"
+                )));
             }
         }
 
@@ -113,21 +146,19 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
             return Err(AssemblerError::InvalidSymbol(first_part.to_string()));
         } else if INSTRUCTIONS.contains(first_part) || DIRECTIVES.contains(first_part) {
             if *first_part == ".ORIG" {
-                return Err(AssemblerError::OrigUsage(
-                    "Can only have one .ORIG".to_string(),
-                ));
+                return Err(AssemblerError::OrigUsage("Can only have one .ORIG".into()));
             } else if *first_part == ".END" {
                 end_found = true;
                 if parts.len() != 1 {
-                    return Err(AssemblerError::EndUsage(
-                        ".END usage: .END Given: {line}".to_string(),
-                    ));
+                    return Err(AssemblerError::EndUsage(format!(
+                        ".END cannot have operand - given: {line}"
+                    )));
                 }
             } else if *first_part == "HALT" {
                 if parts.len() != 1 {
-                    return Err(AssemblerError::HaltUsage(
-                        "HALT usage: <optional symbol> HALT Given: {line}".to_string(),
-                    ));
+                    return Err(AssemblerError::HaltUsage(format!(
+                        "HALT cannot have operand - given: {line}"
+                    )));
                 }
                 halt_found = true;
             } else {
@@ -135,12 +166,19 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
             }
         } else {
             if parts.contains(&"HALT") {
-                if *parts.last().unwrap() != "HALT" || parts.len() != 2 {
-                    return Err(AssemblerError::HaltUsage(
-                        "HALT usage: <optional symbol> HALT Given: {line}".to_string(),
-                    ));
+                // TODO: this seems like a code smell since it is repeated from
+                // above but we have to check if there is a symbol infront of HALT
+                if *parts.last().expect("Already checked existance") != "HALT" || parts.len() != 2 {
+                    return Err(AssemblerError::HaltUsage(format!(
+                        "HALT cannot have operand - given: {line}"
+                    )));
                 }
                 halt_found = true;
+            }
+            if parts.contains(&".END") {
+                return Err(AssemblerError::EndUsage(format!(
+                    ".END cannot have symbol or operand - given: {line}"
+                )));
             }
             symbol_table.push((first_part, location_counter));
             location_counter += 1;
@@ -156,11 +194,11 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
     }
 
     if !end_found {
-        return Err(AssemblerError::EndUsage("Missing .END".to_string()));
+        return Err(AssemblerError::EndUsage("Missing .END".into()));
     }
 
     if !halt_found {
-        return Err(AssemblerError::HaltUsage("Missing HALT".to_string()));
+        return Err(AssemblerError::HaltUsage("Missing HALT".into()));
     }
 
     // SECOND PASS
@@ -189,7 +227,7 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
             .split_whitespace()
             .map(|s| s.trim_end_matches(","))
             .collect();
-        let first_part = parts.first().expect("Empty line");
+        let first_part = parts.first().expect("Empty line already checked");
 
         // STEP 2: Encode instructions
         // TODO: This check can be removed and the encoding part can be moved
@@ -202,9 +240,6 @@ pub fn assemble(program: String) -> Result<Vec<u16>, AssemblerError> {
         }
 
         if DIRECTIVES.contains(first_part) {
-            if *first_part == "HALT" {
-                output.push(0xf025);
-            }
             //let encoded_line = encode_directive(parts, &symbol_table)?;
             //output.push(encoded_line);
         } else {
@@ -223,7 +258,7 @@ fn encode_instruction(
     let mut instruction: u16 = 0;
     let mut symbol: Option<(&str, u16)> = None;
 
-    let first_part = parts.first().expect("Should exist");
+    let first_part = parts.first().expect("Already checked if it exists");
     for (sym, val) in symbol_table {
         if first_part == sym {
             symbol = Some((sym, *val));
@@ -232,8 +267,8 @@ fn encode_instruction(
     }
 
     let opcode = match symbol {
-        None => Opcode::from_str(first_part).unwrap(),
-        Some((_, _)) => Opcode::from_str(parts.index(1)).unwrap(),
+        None => Opcode::from_str(first_part)?,
+        Some((_, _)) => Opcode::from_str(parts.index(1))?,
     };
 
     println!("Opcode: {:?}", opcode);
@@ -247,9 +282,14 @@ fn encode_instruction(
 
     match opcode {
         Opcode::ADD => {
-            assert!(operands.len() == 3);
-            let dr = Register::from_str(operands[0]).unwrap();
-            let sr1 = Register::from_str(operands[1]).unwrap();
+            if operands.len() != 3 {
+                return Err(AssemblerError::Operands(format!(
+                    "ADD needs 3 operands - given: {}",
+                    operands.len()
+                )));
+            }
+            let dr = Register::from_str(operands[0])?;
+            let sr1 = Register::from_str(operands[1])?;
             println!("dr: {}", dr as u16);
             println!("sr1: {}", sr1 as u16);
 
@@ -258,17 +298,17 @@ fn encode_instruction(
             match operands[2]
                 .chars()
                 .next()
-                .expect("Missing ADD instruction argument")
+                .expect("Number of operands already checked")
             {
                 'x' | 'b' | '#' => {
                     let imm5_flag = 1;
-                    let imm5 = encode_numeric(operands[2]).unwrap();
+                    let imm5 = encode_numeric(operands[2])?;
                     instruction += (imm5_flag << 5) + imm5;
                     println!("imm5 flag: {}", imm5_flag);
                     println!("imm5: {}", imm5);
                 }
                 'R' => {
-                    let sr2 = Register::from_str(operands[2]).unwrap();
+                    let sr2 = Register::from_str(operands[2])?;
                     instruction += sr2 as u16;
                     println!("sr2: {}", sr2 as u16);
                 }
@@ -282,10 +322,17 @@ fn encode_instruction(
                         }
                     }
                     if !found {
-                        return Err(AssemblerError::InvalidSymbol(operands[2].to_string()));
+                        return Err(AssemblerError::InvalidSymbol(operands[2].into()));
                     }
                 }
             }
+        }
+        Opcode::TRAP => {
+            let trap_code = match symbol {
+                None => TrapCode::from_str(first_part)?,
+                Some((_, _)) => TrapCode::from_str(parts.index(1))?,
+            };
+            instruction += trap_code as u16;
         }
         _ => unimplemented!("Unimplemented opcode {:?}", opcode),
     }
@@ -304,7 +351,7 @@ fn encode_instruction(
 //    if *first_part == ".ORIG" {
 //        if orig_found {
 //            return Err(AssemblerError::OrigUsage(
-//                "Can only have one .ORIG".to_string(),
+//                "Can only have one .ORIG".into(),
 //            ));
 //        } else {
 //            orig_found = true;
@@ -313,7 +360,7 @@ fn encode_instruction(
 //        end_found = true;
 //        if parts.len() != 1 {
 //            return Err(AssemblerError::EndUsage(
-//                ".END usage: .END Given: {line}".to_string(),
+//                ".END usage: .END Given: {line}".into(),
 //            ));
 //        }
 //    } else {
@@ -333,13 +380,15 @@ fn encode_numeric(s: &str) -> Result<u16, AssemblerError> {
     let number = chars.as_str();
 
     match symbol {
-        'b' => u16::from_str_radix(number, 2)
-            .map_err(|_| AssemblerError::InvalidBinary(number.to_string())),
+        'b' => {
+            u16::from_str_radix(number, 2).map_err(|_| AssemblerError::InvalidBinary(number.into()))
+        }
         '#' => number
             .parse::<u16>()
-            .map_err(|_| AssemblerError::InvalidDecimal(number.to_string())),
-        'x' => u16::from_str_radix(number, 16)
-            .map_err(|_| AssemblerError::InvalidHex(number.to_string())),
-        _ => Err(AssemblerError::InvalidNumber(number.to_string())),
+            .map_err(|_| AssemblerError::InvalidDecimal(number.into())),
+        'x' => {
+            u16::from_str_radix(number, 16).map_err(|_| AssemblerError::InvalidHex(number.into()))
+        }
+        _ => Err(AssemblerError::InvalidNumber(s.into())),
     }
 }

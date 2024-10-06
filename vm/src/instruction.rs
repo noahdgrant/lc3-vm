@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::FromStr;
 
 use crate::{PrivilegeMode, Register, VirtualMachine};
@@ -54,6 +55,14 @@ pub enum OpcodeError {
     UnknownOpcode(String),
 }
 
+impl fmt::Display for OpcodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpcodeError::UnknownOpcode(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl FromStr for Opcode {
     type Err = OpcodeError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -73,6 +82,11 @@ impl FromStr for Opcode {
             "JMP" => Ok(Opcode::JMP),
             "RES" => Ok(Opcode::RES),
             "LEA" => Ok(Opcode::LEA),
+            "GETC" => Ok(Opcode::TRAP),
+            "OUT" => Ok(Opcode::TRAP),
+            "PUTS" => Ok(Opcode::TRAP),
+            "IN" => Ok(Opcode::TRAP),
+            "PUTSP" => Ok(Opcode::TRAP),
             "HALT" => Ok(Opcode::TRAP),
             _ => Err(OpcodeError::UnknownOpcode(s.to_string())),
         }
@@ -80,6 +94,7 @@ impl FromStr for Opcode {
 }
 
 #[derive(Debug)]
+#[repr(u8)]
 pub enum TrapCode {
     /// Get character from keyboard
     GETC = 0x20,
@@ -93,6 +108,34 @@ pub enum TrapCode {
     PUTSP = 0x24,
     /// Halt the program
     HALT = 0x25,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum TrapCodeError {
+    UnknownTrapCode(String),
+}
+
+impl fmt::Display for TrapCodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TrapCodeError::UnknownTrapCode(s) => write!(f, "Unknown trap code {}", s),
+        }
+    }
+}
+
+impl FromStr for TrapCode {
+    type Err = TrapCodeError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "GETC" => Ok(TrapCode::GETC),
+            "OUT" => Ok(TrapCode::OUT),
+            "PUTS" => Ok(TrapCode::PUTS),
+            "IN" => Ok(TrapCode::IN),
+            "PUTSP" => Ok(TrapCode::PUTSP),
+            "HALT" => Ok(TrapCode::HALT),
+            _ => Err(TrapCodeError::UnknownTrapCode(s.to_string())),
+        }
+    }
 }
 
 pub fn execute(vm: &mut VirtualMachine, instruction: u16) {

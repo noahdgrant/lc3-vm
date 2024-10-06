@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug)]
@@ -17,7 +18,17 @@ pub enum Register {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct RegisterError;
+pub enum RegisterError {
+    UnknownRegister(String),
+}
+
+impl fmt::Display for RegisterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegisterError::UnknownRegister(s) => write!(f, "Unknown register {}", s),
+        }
+    }
+}
 
 impl FromStr for Register {
     type Err = RegisterError;
@@ -34,7 +45,7 @@ impl FromStr for Register {
             "PC" => Ok(Register::PC),
             "IR" => Ok(Register::IR),
             "PSR" => Ok(Register::PSR),
-            _ => Err(RegisterError),
+            _ => Err(RegisterError::UnknownRegister(s.into())),
         }
     }
 }
